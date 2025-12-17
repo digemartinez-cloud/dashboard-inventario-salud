@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard - Inventario y Salud de Equipos (PC/Notebooks)</title>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#111b2e;
+      --card2:#0f172a;
+      --text:#e6edf7;
+      --muted:#a7b3c7;
+      --line:rgba(255,255,255,.08);
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --accent:#60a5fa;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
+      background:linear-gradient(180deg,#071022 0%, #0b1220 35%, #070b13 100%);
+      color:var(--text);
+    }
+    header{
+      padding:22px 18px 12px;
+      border-bottom:1px solid var(--line);
+    }
+    header h1{margin:0 0 6px; font-size:20px; letter-spacing:.2px}
+    header p{margin:0; color:var(--muted); font-size:13px; line-height:1.4}
+    .wrap{max-width:1180px; margin:0 auto; padding:16px 18px 26px;}
+    .grid{display:grid; gap:12px}
+    .filters{
+      background:rgba(255,255,255,.03);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px;
+    }
+    .filters .row{
+      display:grid; gap:10px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+    label{display:block; font-size:11px; color:var(--muted); margin:0 0 6px}
+    select,input{
+      width:100%;
+      padding:10px 10px;
+      background:rgba(255,255,255,.03);
+      border:1px solid var(--line);
+      border-radius:10px;
+      color:var(--text);
+      outline:none;
+    }
+    .btns{display:flex; gap:10px; align-items:end; justify-content:flex-end}
+    button{
+      cursor:pointer;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:rgba(96,165,250,.16);
+      color:var(--text);
+      font-weight:600;
+    }
+    button.secondary{background:rgba(255,255,255,.04)}
+    button:active{transform:translateY(1px)}
+    .kpis{
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:12px 12px 10px;
+      min-height:86px;
+      box-shadow:0 10px 28px rgba(0,0,0,.22);
+    }
+    .kpi-title{font-size:11px; color:var(--muted); margin:0 0 8px}
+    .kpi-value{font-size:22px; font-weight:800; margin:0}
+    .kpi-sub{font-size:12px; color:var(--muted); margin:6px 0 0}
+    .badge{
+      display:inline-flex; align-items:center; gap:8px;
+      font-size:12px; padding:6px 10px; border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+    }
+    .dot{width:9px;height:9px;border-radius:50%}
+    .dot.good{background:var(--good)}
+    .dot.warn{background:var(--warn)}
+    .dot.bad{background:var(--bad)}
+
+    .charts{
+      grid-template-columns: 1.35fr .95fr;
+      align-items:stretch;
+    }
+    .chart-card{padding:12px}
+    .chart-title{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px}
+    .chart-title h3{margin:0; font-size:14px}
+    .chart-title span{color:var(--muted); font-size:12px}
+
+    .two{
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .table-card{padding:12px}
+    .table-top{
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
+      margin-bottom:10px;
+    }
+    .table-top h3{margin:0; font-size:14px}
+    .table-top .right{display:flex; gap:10px; align-items:center}
+    .hint{font-size:12px; color:var(--muted)}
+    table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      overflow:hidden;
+      border-radius:12px;
+      border:1px solid var(--line);
+    }
+    thead th{
+      text-align:left;
+      font-size:12px;
+      color:var(--muted);
+      padding:10px 10px;
+      background:rgba(255,255,255,.03);
+      border-bottom:1px solid var(--line);
+      position:sticky; top:0;
+    }
+    tbody td{
+      padding:10px 10px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      font-size:13px;
+      vertical-align:top;
+    }
+    tbody tr:hover{background:rgba(255,255,255,.03)}
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:4px 9px; border-radius:999px; font-size:12px; border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      white-space:nowrap;
+    }
+    .pill.good{border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.10)}
+    .pill.warn{border-color:rgba(245,158,11,.35); background:rgba(245,158,11,.10)}
+    .pill.bad{border-color:rgba(239,68,68,.35); background:rgba(239,68,68,.10)}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace; font-size:12px; color:#cfe0ff}
+    .muted{color:var(--muted)}
+    .small{font-size:12px}
+    .right-align{text-align:right}
+    .note{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.45;
+    }
+
+    @media (max-width: 1100px){
+      .filters .row{grid-template-columns: repeat(3, minmax(0,1fr));}
+      .kpis{grid-template-columns: repeat(3, minmax(0,1fr));}
+      .charts{grid-template-columns: 1fr;}
+      .two{grid-template-columns: 1fr;}
+    }
+    @media (max-width: 560px){
+      .filters .row{grid-template-columns: repeat(2, minmax(0,1fr));}
+      .kpis{grid-template-columns: repeat(2, minmax(0,1fr));}
+    }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="wrap">
+    <h1>Dashboard de Inventario y Salud de Equipos (PC/Notebooks)</h1>
+    <p>
+      Panel de monitoreo con KPIs, filtros, gráficos y detalle por equipo. Incluye evaluación del estado de batería para notebooks
+      (Bueno / Regular / Malo) con recomendaciones. Datos simulados para demo (reemplazables por datos reales).
+    </p>
+  </div>
+</header>
+
+<main class="wrap grid">
+  <!-- Filtros -->
+  <section class="filters">
+    <div class="grid" style="gap:12px;">
+      <div class="row">
+        <div>
+          <label>Organismo / Área</label>
+          <select id="fArea"></select>
+        </div>
+        <div>
+          <label>Tipo</label>
+          <select id="fTipo"></select>
+        </div>
+        <div>
+          <label>Sistema Operativo</label>
+          <select id="fSO"></select>
+        </div>
+        <div>
+          <label>Almacenamiento</label>
+          <select id="fDisco"></select>
+        </div>
+        <div>
+          <label>Estado batería</label>
+          <select id="fBateria"></select>
+        </div>
+        <div>
+          <label>Búsqueda (modelo / SN / usuario)</label>
+          <input id="fSearch" type="text" placeholder="Ej: Dell / PF39... / Juan" />
+        </div>
+      </div>
+
+      <div class="btns">
+        <button class="secondary" id="btnReset">Reiniciar filtros</button>
+        <button id="btnExport">Exportar CSV (tabla filtrada)</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- KPIs -->
+  <section class="grid kpis" id="kpis">
+    <div class="card">
+      <p class="kpi-title">Equipos (filtrados)</p>
+      <p class="kpi-value" id="kTotal">—</p>
+      <p class="kpi-sub" id="kTotalSub">—</p>
+    </div>
+    <div class="card">
+      <p class="kpi-title">% SSD / NVMe</p>
+      <p class="kpi-value" id="kSSD">—</p>
+      <p class="kpi-sub">Almacenamiento recomendado para rendimiento</p>
+    </div>
+    <div class="card">
+      <p class="kpi-title">% RAM &lt; 8 GB</p>
+      <p class="kpi-value" id="kRamLow">—</p>
+      <p class="kpi-sub">Riesgo de lentitud en uso cotidiano</p>
+    </div>
+    <div class="card">
+      <p class="kpi-title">Batería: Bueno / Regular / Malo</p>
+      <p class="kpi-value" id="kBatSplit">—</p>
+      <p class="kpi-sub">Solo para notebooks</p>
+    </div>
+    <div class="card">
+      <p class="kpi-title">Equipos críticos (acción)</p>
+      <p class="kpi-value" id="kCrit">—</p>
+      <p class="kpi-sub">Batería mala, HDD, RAM baja o muy antiguo</p>
+    </div>
+    <div class="card">
+      <p class="kpi-title">Edad promedio</p>
+      <p class="kpi-value" id="kAge">—</p>
+      <p class="kpi-sub">Antigüedad del equipo (años)</p>
+    </div>
+  </section>
+
+  <!-- Gráficos -->
+  <section class="grid charts">
+    <div class="card chart-card">
+      <div class="chart-title">
+        <h3>Estado de batería (solo notebooks)</h3>
+        <span class="muted">Distribución por Bueno / Regular / Malo</span>
+      </div>
+      <canvas id="chBateria" height="120"></canvas>
+      <div class="note">
+        Recomendación rápida:
+        <span class="badge"><span class="dot good"></span>Bueno: OK</span>
+        <span class="badge"><span class="dot warn"></span>Regular: monitorear</span>
+        <span class="badge"><span class="dot bad"></span>Malo: planificar reemplazo</span>
+      </div>
+    </div>
+
+    <div class="card chart-card">
+      <div class="chart-title">
+        <h3>Almacenamiento</h3>
+        <span class="muted">HDD / SSD SATA / NVMe</span>
+      </div>
+      <canvas id="chDisco" height="120"></canvas>
+      <div class="note">
+        Consejo: priorizar migración de <b>HDD → SSD/NVMe</b> en equipos con RAM adecuada.
+      </div>
+    </div>
+  </section>
+
+  <section class="grid two">
+    <div class="card chart-card">
+      <div class="chart-title">
+        <h3>RAM instalada</h3>
+        <span class="muted">Distribución por rangos</span>
+      </div>
+      <canvas id="chRam" height="120"></canvas>
+    </div>
+
+    <div class="card chart-card">
+      <div class="chart-title">
+        <h3>Acciones recomendadas (prioridad)</h3>
+        <span class="muted">Conteo por tipo</span>
+      </div>
+      <canvas id="chAcciones" height="120"></canvas>
+      <div class="note">
+        Las acciones se calculan automáticamente por reglas simples (demo), ajustables a políticas reales.
+      </div>
+    </div>
+  </section>
+
+  <!-- Tabla -->
+  <section class="card table-card">
+    <div class="table-top">
+      <h3>Detalle de equipos</h3>
+      <div class="right">
+        <span class="hint" id="tblHint">—</span>
+      </div>
+    </div>
+
+    <div style="max-height:420px; overflow:auto; border-radius:12px;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:100px;">Tipo</th>
+            <th>Marca / Modelo</th>
+            <th style="width:120px;">SN</th>
+            <th style="width:140px;">Área</th>
+            <th style="width:100px;">RAM</th>
+            <th style="width:110px;">Disco</th>
+            <th style="width:110px;">SO</th>
+            <th style="width:120px;">Batería</th>
+            <th style="width:110px;">Edad</th>
+            <th>Recomendación</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <b>Nota:</b> este panel usa datos simulados. Podés reemplazarlos por un JSON/CSV real
+      (por ejemplo inventario + battery-report consolidado) sin cambiar la estructura visual.
+    </div>
+  </section>
+</main>
+
+<script>
+/* ====== Datos simulados (reemplazables por datos reales) ====== */
+const data = [
+  {tipo:"Notebook", marca:"Dell", modelo:"Inspiron 3583", sn:"C8X0JZ2", area:"Modernización", ramGB:8, disco:"SSD SATA", so:"Windows 11 Pro", anio:2019, bateria:{design:42000, full:32000}},
+  {tipo:"Notebook", marca:"Lenovo", modelo:"V330-15IKB", sn:"PF39QWMM", area:"Modernización", ramGB:8, disco:"HDD", so:"Windows 10 Pro", anio:2018, bateria:{design:36000, full:22000}},
+  {tipo:"PC", marca:"HP", modelo:"ProDesk 400 G5", sn:"HP4G5-1029", area:"Compras", ramGB:8, disco:"SSD SATA", so:"Windows 11 Pro", anio:2020, bateria:null},
+  {tipo:"Notebook", marca:"Banghó", modelo:"MAX L5", sn:"BMAXL5-7712", area:"Educación", ramGB:16, disco:"NVMe", so:"Windows 11 Pro", anio:2022, bateria:{design:50000, full:46500}},
+  {tipo:"Notebook", marca:"HP", modelo:"250 G7", sn:"PF350S07", area:"Modernización", ramGB:4, disco:"HDD", so:"Windows 10 Pro", anio:2019, bateria:{design:41000, full:18500}},
+  {tipo:"PC", marca:"Lenovo", modelo:"ThinkCentre M710s", sn:"M710S-5510", area:"RRHH", ramGB:8, disco:"HDD", so:"Windows 10 Pro", anio:2017, bateria:null},
+  {tipo:"Notebook", marca:"Acer", modelo:"Aspire 5", sn:"AC5-2201", area:"Compras", ramGB:8, disco:"SSD SATA", so:"Ubuntu 24.04", anio:2021, bateria:{design:48000, full:34000}},
+  {tipo:"Notebook", marca:"Toshiba", modelo:"Satellite L655", sn:"TSH-L655-90", area:"Archivo", ramGB:4, disco:"HDD", so:"Windows 7", anio:2011, bateria:{design:44000, full:12000}},
+  {tipo:"PC", marca:"Dell", modelo:"OptiPlex 3060", sn:"OP3060-8891", area:"Tesorería", ramGB:16, disco:"SSD SATA", so:"Windows 11 Pro", anio:2019, bateria:null},
+  {tipo:"Notebook", marca:"Asus", modelo:"VivoBook 15", sn:"ASVB15-6702", area:"Educación", ramGB:8, disco:"NVMe", so:"Windows 11 Pro", anio:2023, bateria:{design:42000, full:40000}},
+  {tipo:"Notebook", marca:"Lenovo", modelo:"IdeaPad 3", sn:"LNV-IP3-4022", area:"Archivo", ramGB:8, disco:"HDD", so:"Windows 10 Pro", anio:2020, bateria:{design:41000, full:25000}},
+  {tipo:"PC", marca:"HP", modelo:"EliteDesk 800 G3", sn:"ED800G3-3142", area:"Modernización", ramGB:8, disco:"SSD SATA", so:"Windows 10 Pro", anio:2017, bateria:null},
+];
+
+/* ====== Utilidades ====== */
+const nowYear = new Date().getFullYear();
+
+function batteryHealth(bat){
+  if(!bat) return null;
+  const pct = (bat.full / bat.design) * 100;
+  if (pct >= 80) return {label:"Bueno", level:"good", pct: Math.round(pct)};
+  if (pct >= 60) return {label:"Regular", level:"warn", pct: Math.round(pct)};
+  return {label:"Malo", level:"bad", pct: Math.round(pct)};
+}
+
+function diskTypeLabel(d){
+  if (d === "HDD") return "HDD";
+  if (d === "SSD SATA") return "SSD SATA";
+  if (d === "NVMe") return "NVMe";
+  return "Otro";
+}
+
+function ramBucket(r){
+  if (r <= 4) return "≤ 4 GB";
+  if (r === 8) return "8 GB";
+  if (r === 16) return "16 GB";
+  return "≥ 32 GB";
+}
+
+function ageYears(anio){
+  return Math.max(0, nowYear - anio);
+}
+
+function recommendation(item){
+  const issues = [];
+  const age = ageYears(item.anio);
+  const disk = diskTypeLabel(item.disco);
+
+  if (disk === "HDD") issues.push("Migrar a SSD/NVMe");
+  if (item.ramGB < 8) issues.push("Ampliar RAM (≥ 8 GB)");
+  if (age >= 7) issues.push("Evaluar renovación por antigüedad");
+  if (item.tipo === "Notebook"){
+    const bh = batteryHealth(item.bateria);
+    if (bh && bh.label === "Malo") issues.push("Reemplazar batería");
+    if (bh && bh.label === "Regular") issues.push("Monitorear batería");
+  }
+  if (!issues.length) return "OK (sin acción prioritaria)";
+  return issues.join(" · ");
+}
+
+function isCritical(item){
+  const age = ageYears(item.anio);
+  const disk = diskTypeLabel(item.disco);
+  const bh = item.tipo==="Notebook" ? batteryHealth(item.bateria) : null;
+
+  return (
+    disk==="HDD" ||
+    item.ramGB < 8 ||
+    (bh && bh.label==="Malo") ||
+    age >= 8
+  );
+}
+
+/* ====== Elementos UI ====== */
+const els = {
+  fArea: document.getElementById("fArea"),
+  fTipo: document.getElementById("fTipo"),
+  fSO: document.getElementById("fSO"),
+  fDisco: document.getElementById("fDisco"),
+  fBateria: document.getElementById("fBateria"),
+  fSearch: document.getElementById("fSearch"),
+  btnReset: document.getElementById("btnReset"),
+  btnExport: document.getElementById("btnExport"),
+  tbody: document.getElementById("tbody"),
+  tblHint: document.getElementById("tblHint"),
+  kTotal: document.getElementById("kTotal"),
+  kTotalSub: document.getElementById("kTotalSub"),
+  kSSD: document.getElementById("kSSD"),
+  kRamLow: document.getElementById("kRamLow"),
+  kBatSplit: document.getElementById("kBatSplit"),
+  kCrit: document.getElementById("kCrit"),
+  kAge: document.getElementById("kAge"),
+};
+
+function unique(values){
+  return ["Todos", ...Array.from(new Set(values)).sort((a,b)=> String(a).localeCompare(String(b), 'es'))];
+}
+
+function fillSelect(select, options){
+  select.innerHTML = "";
+  for (const op of options){
+    const o = document.createElement("option");
+    o.value = op;
+    o.textContent = op;
+    select.appendChild(o);
+  }
+}
+
+function buildFilters(){
+  fillSelect(els.fArea, unique(data.map(d=>d.area)));
+  fillSelect(els.fTipo, unique(data.map(d=>d.tipo)));
+  fillSelect(els.fSO, unique(data.map(d=>d.so)));
+  fillSelect(els.fDisco, unique(data.map(d=>diskTypeLabel(d.disco))));
+  fillSelect(els.fBateria, ["Todos","Bueno","Regular","Malo","N/A (PC)"]);
+}
+
+/* ====== Charts ====== */
+let chBateria, chDisco, chRam, chAcciones;
+
+function makeOrUpdateChart(ref, ctx, config){
+  if (ref) { ref.data = config.data; ref.options = config.options; ref.update(); return ref; }
+  return new Chart(ctx, config);
+}
+
+function chartConfigBar(labels, values, title){
+  return {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{ label: title, data: values }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }},
+      scales: {
+        x: { ticks: { color: "#cbd5e1" }, grid: { color: "rgba(255,255,255,.06)" } },
+        y: { ticks: { color: "#cbd5e1" }, grid: { color: "rgba(255,255,255,.06)" } }
+      }
+    }
+  };
+}
+
+/* ====== Filtrado ====== */
+function applyFilters(){
+  const area = els.fArea.value;
+  const tipo = els.fTipo.value;
+  const so = els.fSO.value;
+  const disco = els.fDisco.value;
+  const bat = els.fBateria.value;
+  const q = els.fSearch.value.trim().toLowerCase();
+
+  return data.filter(d=>{
+    const bh = d.tipo==="Notebook" ? batteryHealth(d.bateria) : null;
+    const batLabel = bh ? bh.label : "N/A (PC)";
+    const matches =
+      (area==="Todos" || d.area===area) &&
+      (tipo==="Todos" || d.tipo===tipo) &&
+      (so==="Todos" || d.so===so) &&
+      (disco==="Todos" || diskTypeLabel(d.disco)===disco) &&
+      (bat==="Todos" || batLabel===bat) &&
+      (!q || `${d.marca} ${d.modelo} ${d.sn} ${d.area}`.toLowerCase().includes(q));
+    return matches;
+  });
+}
+
+/* ====== Render ====== */
+function renderKPIs(rows){
+  const total = rows.length;
+  const notebooks = rows.filter(r=>r.tipo==="Notebook");
+  const pcs = rows.filter(r=>r.tipo==="PC");
+
+  const ssdNvme = rows.filter(r=>["SSD SATA","NVMe"].includes(diskTypeLabel(r.disco))).length;
+  const pctSSD = total ? Math.round((ssdNvme/total)*100) : 0;
+
+  const ramLow = rows.filter(r=>r.ramGB < 8).length;
+  const pctRamLow = total ? Math.round((ramLow/total)*100) : 0;
+
+  const batCounts = {Bueno:0, Regular:0, Malo:0};
+  for (const n of notebooks){
+    const bh = batteryHealth(n.bateria);
+    if (bh) batCounts[bh.label]++;
+  }
+
+  const crit = rows.filter(isCritical).length;
+
+  const avgAge = total ? (rows.reduce((acc,r)=>acc+ageYears(r.anio),0)/total) : 0;
+
+  els.kTotal.textContent = total.toString();
+  els.kTotalSub.textContent = `${notebooks.length} notebooks · ${pcs.length} PCs`;
+
+  els.kSSD.textContent = `${pctSSD}%`;
+  els.kRamLow.textContent = `${pctRamLow}%`;
+  els.kBatSplit.textContent = `${batCounts.Bueno}/${batCounts.Regular}/${batCounts.Malo}`;
+  els.kCrit.textContent = crit.toString();
+  els.kAge.textContent = `${avgAge.toFixed(1)} años`;
+}
+
+function renderCharts(rows){
+  const notebooks = rows.filter(r=>r.tipo==="Notebook");
+  const batCounts = {Bueno:0, Regular:0, Malo:0};
+  for (const n of notebooks){
+    const bh = batteryHealth(n.bateria);
+    if (bh) batCounts[bh.label]++;
+  }
+
+  const diskCounts = {HDD:0, "SSD SATA":0, NVMe:0};
+  for (const r of rows){
+    const k = diskTypeLabel(r.disco);
+    if (diskCounts[k] != null) diskCounts[k]++;
+  }
+
+  const ramCounts = {"≤ 4 GB":0, "8 GB":0, "16 GB":0, "≥ 32 GB":0};
+  for (const r of rows){
+    ramCounts[ramBucket(r.ramGB)]++;
+  }
+
+  // Acciones por recomendación (conteo simple por palabras clave)
+  const actionCounts = {
+    "Migrar a SSD/NVMe":0,
+    "Ampliar RAM":0,
+    "Batería (monitorear/reemplazar)":0,
+    "Evaluar renovación":0,
+    "OK":0
+  };
+  for (const r of rows){
+    const rec = recommendation(r);
+    if (rec.startsWith("OK")) actionCounts["OK"]++;
+    else{
+      if (rec.includes("Migrar a SSD")) actionCounts["Migrar a SSD/NVMe"]++;
+      if (rec.includes("Ampliar RAM")) actionCounts["Ampliar RAM"]++;
+      if (rec.includes("batería") || rec.includes("Bater")) actionCounts["Batería (monitorear/reemplazar)"]++;
+      if (rec.includes("renovación") || rec.includes("Antigüedad")) actionCounts["Evaluar renovación"]++;
+    }
+  }
+
+  chBateria = makeOrUpdateChart(
+    chBateria,
+    document.getElementById("chBateria"),
+    chartConfigBar(["Bueno","Regular","Malo"], [batCounts.Bueno, batCounts.Regular, batCounts.Malo], "Batería")
+  );
+
+  chDisco = makeOrUpdateChart(
+    chDisco,
+    document.getElementById("chDisco"),
+    chartConfigBar(["HDD","SSD SATA","NVMe"], [diskCounts.HDD, diskCounts["SSD SATA"], diskCounts.NVMe], "Disco")
+  );
+
+  chRam = makeOrUpdateChart(
+    chRam,
+    document.getElementById("chRam"),
+    chartConfigBar(Object.keys(ramCounts), Object.values(ramCounts), "RAM")
+  );
+
+  chAcciones = makeOrUpdateChart(
+    chAcciones,
+    document.getElementById("chAcciones"),
+    chartConfigBar(Object.keys(actionCounts), Object.values(actionCounts), "Acciones")
+  );
+}
+
+function renderTable(rows){
+  els.tbody.innerHTML = "";
+  els.tblHint.textContent = `Mostrando ${rows.length} equipos (según filtros)`;
+
+  for (const r of rows){
+    const tr = document.createElement("tr");
+
+    const bh = r.tipo==="Notebook" ? batteryHealth(r.bateria) : null;
+    const batLabel = bh ? `${bh.label} (${bh.pct}%)` : "N/A";
+    const batPillClass = bh ? (bh.level==="good"?"good":bh.level==="warn"?"warn":"bad") : "";
+
+    const rec = recommendation(r);
+
+    tr.innerHTML = `
+      <td><span class="pill">${r.tipo}</span></td>
+      <td>
+        <div><b>${r.marca} ${r.modelo}</b></div>
+        <div class="muted small">Usuario/sector: <span class="mono">${r.area}</span></div>
+      </td>
+      <td class="mono">${r.sn}</td>
+      <td>${r.area}</td>
+      <td class="right-align">${r.ramGB} GB</td>
+      <td>${diskTypeLabel(r.disco)}</td>
+      <td>${r.so}</td>
+      <td>${bh ? `<span class="pill ${batPillClass}">${batLabel}</span>` : `<span class="pill">N/A (PC)</span>`}</td>
+      <td class="right-align">${ageYears(r.anio)} años</td>
+      <td>${isCritical(r) ? `<span class="pill bad">Prioridad</span> ` : `<span class="pill good">OK</span> `}<span class="small">${rec}</span></td>
+    `;
+    els.tbody.appendChild(tr);
+  }
+}
+
+function renderAll(){
+  const rows = applyFilters();
+  renderKPIs(rows);
+  renderCharts(rows);
+  renderTable(rows);
+}
+
+/* ====== CSV Export ====== */
+function toCSV(rows){
+  const header = ["tipo","marca","modelo","sn","area","ramGB","disco","so","anio","bateria_estado","bateria_pct","recomendacion","critico"];
+  const lines = [header.join(",")];
+
+  for (const r of rows){
+    const bh = r.tipo==="Notebook" ? batteryHealth(r.bateria) : null;
+    const estado = bh ? bh.label : "N/A";
+    const pct = bh ? bh.pct : "";
+    const rec = recommendation(r).replaceAll(",", " ");
+    const crit = isCritical(r) ? "SI" : "NO";
+    const row = [
+      r.tipo, r.marca, r.modelo, r.sn, r.area, r.ramGB,
+      diskTypeLabel(r.disco), r.so, r.anio, estado, pct, rec, crit
+    ].map(v => `"${String(v).replaceAll('"','""')}"`);
+    lines.push(row.join(","));
+  }
+  return lines.join("\n");
+}
+
+function download(filename, text){
+  const blob = new Blob([text], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* ====== Eventos ====== */
+buildFilters();
+renderAll();
+
+["change","input"].forEach(evt=>{
+  els.fArea.addEventListener(evt, renderAll);
+  els.fTipo.addEventListener(evt, renderAll);
+  els.fSO.addEventListener(evt, renderAll);
+  els.fDisco.addEventListener(evt, renderAll);
+  els.fBateria.addEventListener(evt, renderAll);
+  els.fSearch.addEventListener(evt, renderAll);
+});
+
+els.btnReset.addEventListener("click", ()=>{
+  els.fArea.value = "Todos";
+  els.fTipo.value = "Todos";
+  els.fSO.value = "Todos";
+  els.fDisco.value = "Todos";
+  els.fBateria.value = "Todos";
+  els.fSearch.value = "";
+  renderAll();
+});
+
+els.btnExport.addEventListener("click", ()=>{
+  const rows = applyFilters();
+  download(`inventario_salud_filtrado_${new Date().toISOString().slice(0,10)}.csv`, toCSV(rows));
+});
+</script>
+</body>
+</html>
